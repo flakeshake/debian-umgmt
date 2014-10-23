@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+# debian-umgt - a little tool for managing users on Debian
+# Copyright (c) 2014 by Dennis Thekumthala , see the file "LICENSE" for details
+
 import csv
 from whiptail import Whiptail
 
@@ -46,7 +49,6 @@ def modgrp (username):
     old = userdb[username]["Group memberships"]
     # wahoo list comprehensions
     list =  [(x , " " , "ON" ) if x in old else (x , " " , "OFF") for x in groupdb.keys()]
-    # list = list + [(x , " " , "OFF" ) for x in groupdb.keys() if x not in already]
     val = ui.checklist("Select or deselect groups user " + username + " belongs to." , list)
     print val
     return 
