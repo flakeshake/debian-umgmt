@@ -10,6 +10,6 @@ Depends on
 - Python 2.7
 - whiptail
 
+whiptail.py is Copyright (c) 2013 by Marwan Alsabbagh and contributors. See whiptail.py for details.
 
-Thanks to Marwan Alsabbagh for his [python-whiptail library] (https://github.com/marwano/whiptail)
 
