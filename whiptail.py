@@ -1,5 +1,4 @@
 # whiptail.py - Use whiptail to display dialog boxes from shell scripts
-# Copyright (C) 2013 Marwan Alsabbagh
 
 """Copyright (c) 2013 by Marwan Alsabbagh and contributors.
 All rights reserved.
