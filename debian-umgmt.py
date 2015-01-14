@@ -14,7 +14,10 @@ grhead =  ["Group Name" , "Password"  , "Group ID" , "Members"]
 
 csv.register_dialect('unixpwd', delimiter=':', quoting=csv.QUOTE_NONE)
 
-def showuser(userdb , uname):
+
+class UserManager(object):
+
+ def showuser(self,userdb , uname):
   chuser = userdb[uname]
   filter =  ["Username" , "Full Name"  , "User ID" , "Group ID" , "Home Directory" , "Login Shell"]
   filter.extend(["Password Settings" , "Group memberships" , "Lock this account" , "Delete this user"])
@@ -31,7 +34,7 @@ def showuser(userdb , uname):
   return ui.menu("Select the setting you want to modify.", selected, ' ')
 
 
-def userlist(userdb):
+ def userlist(self,userdb):
     whmenu = [("Add new user ..", "")]
     list =  [(userdb[entry]["Username"], userdb[entry]["Full Name"]) for entry in userdb.keys()]
     whmenu.extend(list)
@@ -39,7 +42,7 @@ def userlist(userdb):
     return ret
 
 
-def loadusr():
+ def loadusr(self):
     userdb = {}
     passwd = open("/etc/passwd")
     pwreader = csv.DictReader(passwd, fieldnames = pwhead , dialect = 'unixpwd') 
@@ -54,7 +57,7 @@ def loadusr():
 
 
 
-def loadgrp():
+ def loadgrp(self):
     groupdb = {}
     groups = open("/etc/group")
     grreader = csv.DictReader(groups, fieldnames = grhead , dialect = 'unixpwd') 
@@ -71,9 +74,9 @@ def loadgrp():
 
 
 
-# python 2 does not allow varargs *before* keyword arguments  , python 3 does :-(
-# execute command , ask for sudo password if necessary
-def execute (myinput, command):
+ # python 2 does not allow varargs *before* keyword arguments  , python 3 does :-(
+ # execute command , ask for sudo password if necessary
+ def execute (self, myinput, command):
    retvalue = admin()
    if retvalue != 0: 
      return retvalue
@@ -102,7 +105,7 @@ def execute (myinput, command):
       return proc.returncode  
    return -1
 
-def leaveadmin():
+ def leaveadmin(self):
    global ADMINMODE
    ADMINMODE = False
    # drop cached password
@@ -110,7 +113,7 @@ def leaveadmin():
    return
 
 
-def admin():
+ def admin(self):
    # the default state is that the user fails to authenticate
    retval = AUTH_ABORT
    global ADMINMODE
@@ -132,7 +135,7 @@ def admin():
    ui.height = 25
    return retval
 
-def modgrp (username):
+ def modgrp (self,username):
    old = userdb[username]["Group memberships"]
    # wahoo list comprehensions
    list =  [(x , " " , "ON" ) if x in old else (x , " " , "OFF") for x in groupdb.keys()]
@@ -142,7 +145,7 @@ def modgrp (username):
    # return execute("" , "sudo", "usermod" , "-G" , ','.join(val) , username)
    return 
 
-def newuser():
+ def newuser(self):
    uname = ui.prompt("Please enter an username")
    if len(uname) < 1:
      return
@@ -161,17 +164,17 @@ def newuser():
    # return execute(uname + ":" + pw , "sudo" , "chpasswd")
    return    
 
-def rmuser(user):
-   execute( "" , [ "sudo" , "/bin/echo" , user])
+ def rmuser(self,user):
+   self.execute( "" , [ "sudo" , "/bin/echo" , user])
    # return execute("", "sudo" , "deluser" , "--quiet" , "--remove-home" , user)
    return    
 
-def lockuser(user):
+ def lockuser(self,user):
    execute( "" , ["sudo" , "/bin/echo" , user])
    # return execute("", "sudo", "usermod" , "-L" , "-e" , "1" , user )
    return    
 
-def chpw(user):
+ def chpw(self,user):
    pw = "xx"
    pw2 = "yy"
    while pw != pw2:
@@ -181,7 +184,7 @@ def chpw(user):
       pw2 = ui.prompt("Please re-enter the password for " + user , password=True)
       if pw != pw2: ui.alert("Passwords don't match , try again.") 
    # return execute(user + ":" + pw , "sudo" , "chpasswd")
-   execute("" , ["sudo" "/bin/echo" , user + ":" + pw])
+   self.execute("" , ["sudo" "/bin/echo" , user + ":" + pw])
    return    
 
 ui = Whiptail("User managment" , height=25, width=78 , auto_exit=False)
@@ -191,33 +194,34 @@ ui = Whiptail("User managment" , height=25, width=78 , auto_exit=False)
 ADMINMODE = False
 DORELOAD = True
 
+uman = UserManager()
 while True:
    ui.title  = "User managment"
    if DORELOAD:
       if DEBUG: print "reloading users and groups"
-      userdb = loadusr()
-      groupdb = loadgrp()
-   seluser = userlist(userdb)
+      userdb = uman.loadusr()
+      groupdb = uman.loadgrp()
+   seluser = uman.userlist(userdb)
 
    DORELOAD = False
  
    # user pressed cancel
    if len(seluser) < 1:
      if ADMINMODE:
-       leaveadmin()
+       uman.leaveadmin()
      sys.exit()
    elif seluser == "Add new user ..":
      ui.title = "Add new user"  
-     newuser()
+     uman.newuser()
    else:
      ui.title = "Info for user " + seluser
-     ret = showuser(userdb , seluser)
+     ret = uman.showuser(userdb , seluser)
      if ret == "Group memberships":
         ui.title = "Group memberships"
-        modgrp(userdb[seluser]["Username"])
+        uman.modgrp(userdb[seluser]["Username"])
      if ret  == "Password settings":
-        chpw(userdb[seluser]["Username"])
+        uman.chpw(userdb[seluser]["Username"])
      if ret == "Lock this account":
-        lockuser(userdb[seluser]["Username"])
+        uman.lockuser(userdb[seluser]["Username"])
      if ret == "Delete this user":
-        rmuser(userdb[seluser]["Username"])
+        uman.rmuser(userdb[seluser]["Username"])
