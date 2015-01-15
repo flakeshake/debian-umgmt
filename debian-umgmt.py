@@ -2,12 +2,14 @@
 # debian-umgt - a little tool for managing users on Debian
 # Copyright (c) 2014 by Dennis Thekumthala , see the file "LICENSE" for details
 
-import csv , subprocess32 , sys , pexpect, multiprocessing
+import csv , sys , pexpect
 from whiptail import Whiptail
 
 DEBUG = True
-AUTH_ABORT = "Aborted authentication."
-SUDO_EXEC_FAIL = "Failed to execute sudo , authentication failed."
+AUTH_ABORT = "Aborted authentication , returning to main menu."
+SUDO_EXEC_FAIL = "Authentication failed , returning to main menu."
+SUDO_AUTH_SUCCESS = "Authentication succeeded , executing action."
+CMD_EXEC_FAIL = "Failed to execute action."
 
 pwhead =  ["Username" , "Password"  , "User ID" , "Group ID" , "User Info", "Home Directory" , "Login Shell"]
 grhead =  ["Group Name" , "Password"  , "Group ID" , "Members"]
@@ -16,6 +18,10 @@ csv.register_dialect('unixpwd', delimiter=':', quoting=csv.QUOTE_NONE)
 
 
 class UserManager(object):
+
+ def __init__(self):
+   self.pw = ""
+   self.ADMINMODE = False
 
  def showuser(self,userdb , uname):
   chuser = userdb[uname]
@@ -74,62 +80,61 @@ class UserManager(object):
 
 
 
- # python 2 does not allow varargs *before* keyword arguments  , python 3 does :-(
- # execute command , ask for sudo password if necessary
- def execute (self, myinput, command):
-   retvalue = admin()
-   if retvalue != 0: 
-     return retvalue
-   try:
-      # subprocess32.check_output(command , input = myinput , universal_newlines=True)
-      # connect pipes , set pipes to text mode
-      proc = subprocess32.Popen(command , stdin=subprocess32.PIPE , stdout=subprocess32.PIPE , stderr=subprocess32.PIPE ,  universal_newlines=True)
-      stdoutdata, stderrdata = proc.communicate(myinput)
-   except OSError as err:
-      print (err)
-      print "Does the command exist ?"
-   except ValueError as err:
-      print (err)
-      print "Did you call Popen() with wrong arguments ?"
-   except CalledProcessError as err:
-      if DEBUG: print (err)
-   else:
-      if DEBUG:
-         print "Input: " , myinput
-         print "Command: " , command
-         print "Return value: "  , proc.returncode
-         print "Errors: " + stderrdata
-         print "Output: " + stdoutdata
-      global DORELOAD
-      DORELOAD = True
-      return proc.returncode  
-   return -1
+ def sudo_runner (self , cmd , time = 2.0):
+  if not self.ADMINMODE:
+    ret = self.admin()
+    ui.title = "Admin mode"
+    ui.width = 60 
+    ui.height = 20
+    ui.alert(ret)
+    ui.width = 78 
+    ui.height = 25
+  if self.ADMINMODE:
+    child = pexpect.spawn('sudo ' + cmd , timeout = time)
+    child.expect_exact(':')
+    child.sendline(self.password)
+    retv = child.expect([pexpect.EOF, pexpect.TIMEOUT])
+    if retv != 0:
+      ui.width = 60 
+      ui.height = 20
+      ui.alert(CMD_EXEC_FAIL)
+      ui.width = 78 
+      ui.height = 25
+    retstring = child.before
+    child.close()
+    retcode = child.exitstatus
+    print "Returncode: " + str(retcode)
+    print "Output: " + retstring
+    return
 
  def leaveadmin(self):
-   global ADMINMODE
-   ADMINMODE = False
+   self.ADMINMODE = False
    # drop cached password
-   # ret = execute("" , "sudo", "-K" )
+   # ret = self.sudo_runner("sudo -K")
    return
 
 
  def admin(self):
    # the default state is that the user fails to authenticate
    retval = AUTH_ABORT
-   global ADMINMODE
-   if not ADMINMODE:
+   if not self.ADMINMODE:
       ui.title = "Admin mode"
       ui.width = 60 
       ui.height = 20
       ui.alert("Your password is necessary to continue.")
-      pw = ui.prompt("Please enter your password ", password=True)
-      if not len(pw) < 1: 
-         proc = subprocess32.Popen(["sudo" , "-S" , "-v"] , stdin=subprocess32.PIPE , stdout=subprocess32.PIPE ,  universal_newlines=True)
-         stdoutdata, stderrdata = proc.communicate(pw)
-         ret = proc.returncode
-         if ret == 0:
-           ADMINMODE = True
-         if ret == 1:
+      self.password = ui.prompt("Please enter your password ", password=True)
+      if not len(self.password) < 1: 
+         child = pexpect.spawn("sudo -S -v" , timeout = 1)
+         child.expect_exact(':')
+         child.sendline(self.password)
+         retv = child.expect([pexpect.EOF , pexpect.TIMEOUT])
+         stdoutdata = child.before
+         child.close()
+         ret = child.exitstatus 
+         if ret == 0 and retv != 1:
+           self.ADMINMODE = True
+           retval = SUDO_AUTH_SUCCESS
+         else:
            retval = SUDO_EXEC_FAIL
    ui.width = 78 
    ui.height = 25
@@ -142,7 +147,7 @@ class UserManager(object):
    val = ui.checklist("Select or deselect groups user " + username + " belongs to with the spacebar." , list)
    if DEBUG:   print val
    # user will be removed from existing groups if they're not selected 
-   # return execute("" , "sudo", "usermod" , "-G" , ','.join(val) , username)
+   # return self.sudo_runner("usermod -G " + ','.join(val) + " " + username)
    return 
 
  def newuser(self):
@@ -160,18 +165,18 @@ class UserManager(object):
         return
       pw2 = ui.prompt("Please re-enter the password for " + uname , password=True)
       if pw != pw2: ui.alert("Passwords don't match , try again.") 
-   # ret = execute("", "sudo" , "adduser" , "--quiet" , "--disabled-password" , "--gecos" , fname , uname)
-   # return execute(uname + ":" + pw , "sudo" , "chpasswd")
+   # ret = self.sudo_runner("adduser --quiet --disabled-password --gecos " + fname + " " + uname)
+   # return self.sudo_runner(uname + ":" + pw , "sudo" , "chpasswd")
    return    
 
  def rmuser(self,user):
-   self.execute( "" , [ "sudo" , "/bin/echo" , user])
-   # return execute("", "sudo" , "deluser" , "--quiet" , "--remove-home" , user)
+   self.sudo_runner("/bin/echo " + user)
+   # return self.sudo_runner("deluser --quiet --remove-home " + user)
    return    
 
  def lockuser(self,user):
-   execute( "" , ["sudo" , "/bin/echo" , user])
-   # return execute("", "sudo", "usermod" , "-L" , "-e" , "1" , user )
+   self.sudo_runner("/bin/echo " +  user)
+   # return self.sudo_runner("usermod -L -e 1 " + user )
    return    
 
  def chpw(self,user):
@@ -183,15 +188,14 @@ class UserManager(object):
         return
       pw2 = ui.prompt("Please re-enter the password for " + user , password=True)
       if pw != pw2: ui.alert("Passwords don't match , try again.") 
-   # return execute(user + ":" + pw , "sudo" , "chpasswd")
-   self.execute("" , ["sudo" "/bin/echo" , user + ":" + pw])
+   # return self.sudo_runner(user + ":" + pw , "chpasswd")
+   self.sudo_runner("/bin/echo "  + user + ":" + pw)
    return    
 
 ui = Whiptail("User managment" , height=25, width=78 , auto_exit=False)
 
 # main loop
 
-ADMINMODE = False
 DORELOAD = True
 
 uman = UserManager()
@@ -207,7 +211,7 @@ while True:
  
    # user pressed cancel
    if len(seluser) < 1:
-     if ADMINMODE:
+     if uman.ADMINMODE:
        uman.leaveadmin()
      sys.exit()
    elif seluser == "Add new user ..":
