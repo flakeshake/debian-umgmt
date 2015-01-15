@@ -6,14 +6,6 @@ import csv , sys , pexpect
 from whiptail import Whiptail
 
 DEBUG = True
-AUTH_ABORT = "Aborted authentication , returning to main menu."
-SUDO_EXEC_FAIL = "Authentication failed , returning to main menu."
-SUDO_AUTH_SUCCESS = "Authentication succeeded , executing action."
-CMD_EXEC_FAIL = "Failed to execute action."
-
-pwhead =  ["Username" , "Password"  , "User ID" , "Group ID" , "User Info", "Home Directory" , "Login Shell"]
-grhead =  ["Group Name" , "Password"  , "Group ID" , "Members"]
-
 csv.register_dialect('unixpwd', delimiter=':', quoting=csv.QUOTE_NONE)
 
 
@@ -22,6 +14,13 @@ class UserManager(object):
  def __init__(self):
    self.pw = ""
    self.ADMINMODE = False
+   self.AUTH_ABORT = "Aborted authentication , returning to main menu."
+   self.SUDO_EXEC_FAIL = "Authentication failed , returning to main menu."
+   self.SUDO_AUTH_SUCCESS = "Authentication succeeded , executing action."
+   self.CMD_EXEC_FAIL = "Failed to execute action."
+
+   self.pwhead =  ["Username" , "Password"  , "User ID" , "Group ID" , "User Info", "Home Directory" , "Login Shell"]
+   self.grhead =  ["Group Name" , "Password"  , "Group ID" , "Members"]
 
  def showuser(self,userdb , uname):
   chuser = userdb[uname]
@@ -51,7 +50,7 @@ class UserManager(object):
  def loadusr(self):
     userdb = {}
     passwd = open("/etc/passwd")
-    pwreader = csv.DictReader(passwd, fieldnames = pwhead , dialect = 'unixpwd') 
+    pwreader = csv.DictReader(passwd, fieldnames = self.pwhead , dialect = 'unixpwd') 
     for row in pwreader:
         name = row["User Info"].split(',')[0]
 	row["Full Name"] = name
@@ -66,7 +65,7 @@ class UserManager(object):
  def loadgrp(self):
     groupdb = {}
     groups = open("/etc/group")
-    grreader = csv.DictReader(groups, fieldnames = grhead , dialect = 'unixpwd') 
+    grreader = csv.DictReader(groups, fieldnames = self.grhead , dialect = 'unixpwd') 
     for row in grreader:
         grname = row["Group Name"]
         members = row["Members"].split(",")
@@ -80,16 +79,8 @@ class UserManager(object):
 
 
 
- def sudo_runner (self , cmd , time = 2.0):
-  if not self.ADMINMODE:
-    ret = self.admin()
-    ui.title = "Admin mode"
-    ui.width = 60 
-    ui.height = 20
-    ui.alert(ret)
-    ui.width = 78 
-    ui.height = 25
-  if self.ADMINMODE:
+ def sudo_runner (self , cmd , time = 2.0): 
+  if self.admin():
     child = pexpect.spawn('sudo ' + cmd , timeout = time)
     child.expect_exact(':')
     child.sendline(self.password)
@@ -97,7 +88,7 @@ class UserManager(object):
     if retv != 0:
       ui.width = 60 
       ui.height = 20
-      ui.alert(CMD_EXEC_FAIL)
+      ui.alert(self.CMD_EXEC_FAIL)
       ui.width = 78 
       ui.height = 25
     retstring = child.before
@@ -105,7 +96,7 @@ class UserManager(object):
     retcode = child.exitstatus
     print "Returncode: " + str(retcode)
     print "Output: " + retstring
-    return
+  return
 
  def leaveadmin(self):
    self.ADMINMODE = False
@@ -113,32 +104,35 @@ class UserManager(object):
    # ret = self.sudo_runner("sudo -K")
    return
 
-
+ # set AND return self.ADMINMODE
  def admin(self):
-   # the default state is that the user fails to authenticate
-   retval = AUTH_ABORT
    if not self.ADMINMODE:
-      ui.title = "Admin mode"
-      ui.width = 60 
-      ui.height = 20
-      ui.alert("Your password is necessary to continue.")
-      self.password = ui.prompt("Please enter your password ", password=True)
-      if not len(self.password) < 1: 
-         child = pexpect.spawn("sudo -S -v" , timeout = 1)
-         child.expect_exact(':')
-         child.sendline(self.password)
-         retv = child.expect([pexpect.EOF , pexpect.TIMEOUT])
-         stdoutdata = child.before
-         child.close()
-         ret = child.exitstatus 
-         if ret == 0 and retv != 1:
-           self.ADMINMODE = True
-           retval = SUDO_AUTH_SUCCESS
-         else:
-           retval = SUDO_EXEC_FAIL
-   ui.width = 78 
-   ui.height = 25
-   return retval
+    # the default state is that the user fails to authenticate
+    state = self.AUTH_ABORT
+    ui.title = "Admin mode"
+    ui.width = 60 
+    ui.height = 20
+    ui.alert("Your password is necessary to continue.")
+    self.password = ui.prompt("Please enter your password ", password=True)
+    if not len(self.password) < 1: 
+     child = pexpect.spawn("sudo -S -v" , timeout = 1)
+     child.expect_exact(':')
+     child.sendline(self.password)
+     retv = child.expect([pexpect.EOF , pexpect.TIMEOUT])
+     stdoutdata = child.before
+     child.close() 
+     if child.exitstatus != 0 or retv == 1:
+        state = self.SUDO_EXEC_FAIL
+     else:
+        self.ADMINMODE = True
+        ui.width = 78 
+        ui.height = 25
+        # don't display an alert
+        return self.ADMINMODE
+    ui.alert(state)
+    ui.width = 78 
+    ui.height = 25
+   return self.ADMINMODE
 
  def modgrp (self,username):
    old = userdb[username]["Group memberships"]
