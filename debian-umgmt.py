@@ -3,7 +3,7 @@
 # Copyright (c) 2014 by Dennis Thekumthala , see the file "LICENSE" for details
 
 import csv , sys , pexpect
-from whiptail import Whiptail
+from Whiptail import Whiptail
 
 DEBUG = False
 csv.register_dialect('unixpwd', delimiter=':', quoting=csv.QUOTE_NONE)
@@ -27,18 +27,22 @@ class UserManager(object):
  def showuser(self , uname):
   chuser = self.userdb[uname]
   filter =  ["Username" , "Full Name"  , "User ID" , "Group ID" , "Home Directory" , "Login Shell"]
-  filter.extend(["Password settings" , "Group memberships" , "Lock this account" , "Delete this user"])
+  filter.extend(["    " , ">>> Settings "])
+  filter.extend(["Change password" , "Group memberships" , "Lock this account" , "Delete this user"])
   selected = []
   for key in filter:
     if key in chuser:
       value = chuser[key]
       if key == "Group memberships":
-        selected.append((key,' '.join(value)))
+        # selected.append((key,' '.join(value)))
+        memberof = ' '.join(value[:2:])
+        if len(value) > 2: memberof = memberof + " ..."
+        selected.append((key,memberof))
       else:
         selected.append((key,value))
     else:
        selected.append((key,' '))  
-  return self.ui.menu("Select the setting you want to modify.", selected, ' ')
+  return self.ui.menu("Press enter to return to the main menu.", selected, ' ')
 
 
  def userlist(self):
@@ -220,7 +224,7 @@ while True:
         if uman.admin():
           uman.ui.title = "Group memberships"
           uman.modgrp(seluser)
-     if ret  == "Password settings":
+     if ret  == "Change password":
          if uman.admin():
           uman.chpw(seluser)
      if ret == "Lock this account":
@@ -229,3 +233,4 @@ while True:
      if ret == "Delete this user":
          if uman.admin():
           uman.rmuser(seluser)
+
