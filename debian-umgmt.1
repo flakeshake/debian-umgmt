@@ -1,0 +1,63 @@
+.\"                                      EMACS: -*- nroff -*-
+.\" First parameter, NAME, should be all caps
+.\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
+.\" other parameters are allowed: see man(7), man(1)
+
+.TH DEBIAN-UMGMT 1 "February 10, 2015"
+
+.\" Please adjust this date whenever revising the manpage.
+.\"
+.\" Some roff macros, for reference:
+.\" .nh        disable hyphenation
+.\" .hy        enable hyphenation
+.\" .ad l      left justify
+.\" .ad b      justify to both left and right margins
+.\" .nf        disable filling
+.\" .fi        enable filling
+.\" .br        insert line break
+.\" .sp <n>    insert n+1 empty lines
+.\" for manpage-specific macros, see man(7)
+
+.SH NAME
+debian-umgmt \- small TUI tool to manage users on Debian
+
+.SH SYNOPSIS
+.B debian-umgmt [ -h | -v ]
+.br
+
+.SH DESCRIPTION
+This manual page documents briefly the
+.B debian-umgmt
+command.
+.PP
+
+.\" TeX users may be more comfortable with the \fB<whatever>\fP and
+.\" \fI<whatever>\fP escape sequences to invode bold face and italics, 
+.\" respectively.
+
+\fBdebian-umgmt\fP is an interactive menu-driven program that can be used 
+to list, add and remove user accounts via a newt-based text user interface 
+on Debian. Modifiying group memberships of users is also possible. 
+
+.SH OPTIONS
+The program follows the usual GNU command line syntax, with long
+options starting with two dashes (`-').
+A summary of options is included below.
+
+.TP
+.B \-h, \-\-help
+Show summary of options.
+.TP
+.B \-v, \-\-version
+Show version of program.
+
+.SH SEE ALSO
+.BR adduser (8),
+.BR deluser (8), 
+.BR usermod (8).
+.br
+
+.SH AUTHOR
+\fBdebian-umgmt\fP and this manual page were written by Dennis Thekumthala 
+<d.thekumthala@googlemail.com>, for the Debian GNU/Linux system.
+

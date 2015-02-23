@@ -3,7 +3,7 @@
 # Copyright (c) 2014 by Dennis Thekumthala , see the file "LICENSE" for details
 
 import csv , sys , pexpect
-from Whiptail import Whiptail
+from Whiptail_unoff import Whiptail
 
 DEBUG = False
 csv.register_dialect('unixpwd', delimiter=':', quoting=csv.QUOTE_NONE)
